@@ -104,4 +104,9 @@ client.on('messageCreate', async (message) => {
 
 });
 
+// heartbeat log ทุก 10 นาที
+setInterval(() => {
+    console.log("Bot is alive:", new Date().toLocaleString());
+}, 600000);
+
 client.login(process.env.TOKEN);
