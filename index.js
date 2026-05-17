@@ -3,6 +3,9 @@ require('dotenv').config();
 const { Client, GatewayIntentBits } = require('discord.js');
 const axios = require('axios');
 const FormData = require('form-data');
+const express = require('express');
+
+const app = express();
 
 const client = new Client({
     intents: [
@@ -12,13 +15,53 @@ const client = new Client({
     ]
 });
 
+// ================= WEB SERVER =================
+
+app.get('/', (req, res) => {
+    res.send('Slip Bot Online ✅');
+});
+
+const PORT = process.env.PORT || 3000;
+
+app.listen(PORT, () => {
+    console.log(`Web server running on port ${PORT}`);
+});
+
+// ================= DISCORD BOT =================
+
 client.once('clientReady', () => {
     console.log(`Logged in as ${client.user.tag}`);
 });
 
+// reconnect / debug logs
+client.on('disconnect', () => {
+    console.log('Bot disconnected');
+});
+
+client.on('reconnecting', () => {
+    console.log('Bot reconnecting...');
+});
+
+client.on('resume', () => {
+    console.log('Bot resumed');
+});
+
+client.on('error', console.error);
+
+process.on('unhandledRejection', error => {
+    console.error('Unhandled promise rejection:', error);
+});
+
+// heartbeat log ทุก 10 นาที
+setInterval(() => {
+    console.log("Bot is alive:", new Date().toLocaleString());
+}, 600000);
+
 client.on('messageCreate', async (message) => {
 
     if (message.author.bot) return;
+
+    console.log(`Message from ${message.author.tag}`);
 
     // เช็คว่ามีรูปไหม
     if (message.attachments.size > 0) {
@@ -35,7 +78,8 @@ client.on('messageCreate', async (message) => {
             const imageResponse = await axios.get(
                 imageUrl,
                 {
-                    responseType: 'arraybuffer'
+                    responseType: 'arraybuffer',
+                    timeout: 15000
                 }
             );
 
@@ -53,6 +97,7 @@ client.on('messageCreate', async (message) => {
                 'https://developer.easyslip.com/api/v1/verify',
                 form,
                 {
+                    timeout: 15000,
                     headers: {
                         ...form.getHeaders(),
                         Authorization: `Bearer ${process.env.API_KEY}`
@@ -97,30 +142,12 @@ client.on('messageCreate', async (message) => {
         } catch (err) {
 
             console.log(err.response?.data || err.message);
+            console.log(err);
 
             message.reply('❌ ตรวจสอบไม่สำเร็จ');
         }
     }
 
-});
-
-// heartbeat log ทุก 10 นาที
-setInterval(() => {
-    console.log("Bot is alive:", new Date().toLocaleString());
-}, 600000);
-
-const express = require('express');
-
-const app = express();
-
-app.get('/', (req, res) => {
-    res.send('Bot is running!');
-});
-
-const PORT = process.env.PORT || 3000;
-
-app.listen(PORT, () => {
-    console.log(`Web server running on port ${PORT}`);
 });
 
 client.login(process.env.TOKEN);
