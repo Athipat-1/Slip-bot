@@ -38,10 +38,6 @@ client.on('disconnect', () => {
     console.log('Bot disconnected');
 });
 
-client.on('reconnecting', () => {
-    console.log('Bot reconnecting...');
-});
-
 client.on('resume', () => {
     console.log('Bot resumed');
 });
@@ -57,13 +53,16 @@ setInterval(() => {
     console.log("Bot is alive:", new Date().toLocaleString());
 }, 600000);
 
+// กันสลิปซ้ำ
+global.usedSlips = [];
+
 client.on('messageCreate', async (message) => {
 
     if (message.author.bot) return;
 
     console.log(`Message from ${message.author.tag}`);
 
-    // เช็คว่ามีรูปไหม
+    // เช็คว่ามีไฟล์แนบไหม
     if (message.attachments.size > 0) {
 
         const attachment = message.attachments.first();
@@ -83,57 +82,114 @@ client.on('messageCreate', async (message) => {
                 }
             );
 
-            // สร้าง form-data
-            const form = new FormData();
+            let response;
+            let slipType = 'ธนาคาร';
 
-            form.append(
-                'file',
-                imageResponse.data,
-                'slip.jpg'
-            );
+            // ================= ตรวจสลิปธนาคาร =================
 
-            // ส่งไป EasySlip
-            const response = await axios.post(
-                'https://developer.easyslip.com/api/v1/verify',
-                form,
-                {
-                    timeout: 15000,
-                    headers: {
-                        ...form.getHeaders(),
-                        Authorization: `Bearer ${process.env.API_KEY}`
+            try {
+
+                const form = new FormData();
+
+                form.append(
+                    'file',
+                    imageResponse.data,
+                    'slip.jpg'
+                );
+
+                response = await axios.post(
+                    'https://developer.easyslip.com/api/v1/verify',
+                    form,
+                    {
+                        timeout: 15000,
+                        headers: {
+                            ...form.getHeaders(),
+                            Authorization: `Bearer ${process.env.API_KEY}`
+                        }
                     }
-                }
-            );
+                );
+
+                console.log('Bank Slip');
+
+            } catch {
+
+                // ================= ตรวจ TrueMoney =================
+
+                const form = new FormData();
+
+                form.append(
+                    'file',
+                    imageResponse.data,
+                    'slip.jpg'
+                );
+
+                response = await axios.post(
+                    'https://developer.easyslip.com/api/v1/verify/truewallet',
+                    form,
+                    {
+                        timeout: 15000,
+                        headers: {
+                            ...form.getHeaders(),
+                            Authorization: `Bearer ${process.env.API_KEY}`
+                        }
+                    }
+                );
+
+                slipType = 'TrueMoney Wallet';
+
+                console.log('TrueMoney Slip');
+            }
 
             console.log(response.data);
 
-            // ดึงข้อมูล
+            // ================= ดึงข้อมูล =================
+
             const data = response.data.data;
 
-            // ข้อมูลสลิป
-            const amount = data.amount.amount;
-            const time = data.date;
-            const payload = data.payload;
+            // รองรับทั้งธนาคาร + TrueMoney
+            const amount =
+                data.amount?.amount || data.amount || 'ไม่พบข้อมูล';
 
-            // เลขบัญชีปลายทาง
-            const receiverAccount = data.receiver.account.value;
+            const time =
+                data.date || 'ไม่พบข้อมูล';
+
+            const payload =
+                data.payload ||
+                data.transactionId ||
+                'unknown';
 
             // กันสลิปซ้ำ
-            global.usedSlips = global.usedSlips || [];
-
             if (global.usedSlips.includes(payload)) {
                 return message.reply('❌ สลิปนี้ถูกใช้แล้ว');
             }
 
             global.usedSlips.push(payload);
 
-            // ตอบกลับ
+            // ข้อมูลผู้รับ
+            const receiverAccount =
+                data.receiver?.account?.value || 'ไม่พบข้อมูล';
+
+            const receiverName =
+                data.receiver?.name || 'ไม่พบข้อมูล';
+
+            const receiverPhone =
+                data.receiver?.phone || 'ไม่พบข้อมูล';
+
+            // ================= ตอบกลับ =================
+
             message.reply(
 `ชำระเงินเรียบร้อย ✅
 
+📄 ประเภท: ${slipType}
+
+👤 ผู้รับ: ${receiverName}
+📱 เบอร์: ${receiverPhone}
+
 🏦 บัญชีปลายทาง: ${receiverAccount}
+
 💸 จำนวน: ${amount} บาท
 🕒 เวลา: ${time}
+
 🔁 สถานะ: สำเร็จ
 
 ส่ง @username หรือลิ้งค์เซิร์ฟเวอร์ได้เลยครับ`
