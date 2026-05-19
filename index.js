@@ -33,7 +33,7 @@ client.once('clientReady', () => {
     console.log(`Logged in as ${client.user.tag}`);
 });
 
-// reconnect / debug logs
+// reconnect logs
 client.on('disconnect', () => {
     console.log('Bot disconnected');
 });
@@ -62,7 +62,7 @@ client.on('messageCreate', async (message) => {
 
     console.log(`Message from ${message.author.tag}`);
 
-    // เช็คว่ามีไฟล์แนบไหม
+    // เช็คว่ามีรูปไหม
     if (message.attachments.size > 0) {
 
         const attachment = message.attachments.first();
@@ -73,7 +73,7 @@ client.on('messageCreate', async (message) => {
 
         try {
 
-            // โหลดรูปจาก Discord
+            // โหลดรูป
             const imageResponse = await axios.get(
                 imageUrl,
                 {
@@ -85,7 +85,7 @@ client.on('messageCreate', async (message) => {
             let response;
             let slipType = 'ธนาคาร';
 
-            // ================= ตรวจสลิปธนาคาร =================
+            // ================= ตรวจธนาคาร =================
 
             try {
 
@@ -146,7 +146,6 @@ client.on('messageCreate', async (message) => {
 
             const data = response.data.data;
 
-            // รองรับทั้งธนาคาร + TrueMoney
             const amount =
                 data.amount?.amount || data.amount || 'ไม่พบข้อมูล';
 
@@ -160,37 +159,46 @@ client.on('messageCreate', async (message) => {
 
             // กันสลิปซ้ำ
             if (global.usedSlips.includes(payload)) {
-                return message.reply('❌ สลิปนี้ถูกใช้แล้ว');
+
+                return message.reply(
+`\`\`\`yaml
+❌ SLIP DUPLICATE
+
+Status : Rejected
+Reason : This slip has already been used
+\`\`\``
+                );
             }
 
             global.usedSlips.push(payload);
 
             // ข้อมูลผู้รับ
             const receiverAccount =
-                data.receiver?.account?.value || 'ไม่พบข้อมูล';
+                data.receiver?.account?.value || '-';
 
             const receiverName =
-                data.receiver?.name || 'ไม่พบข้อมูล';
+                data.receiver?.name || '-';
 
             const receiverPhone =
-                data.receiver?.phone || 'ไม่พบข้อมูล';
+                data.receiver?.phone || '-';
 
             // ================= ตอบกลับ =================
 
             message.reply(
-`ชำระเงินเรียบร้อย ✅
+`\`\`\`yaml
+PAYMENT SUCCESS ✅
 
-📄 ประเภท: ${slipType}
+Type        : ${slipType}
+Receiver    : ${receiverName}
+Phone       : ${receiverPhone}
+Account     : ${receiverAccount}
 
-👤 ผู้รับ: ${receiverName}
-📱 เบอร์: ${receiverPhone}
+Amount      : ${amount} บาท
+Time        : ${time}
 
-🏦 บัญชีปลายทาง: ${receiverAccount}
-
-💸 จำนวน: ${amount} บาท
-🕒 เวลา: ${time}
-
-🔁 สถานะ: สำเร็จ
+Status      : Success
+Duplicate   : No
+\`\`\`
 
 ส่ง @username หรือลิ้งค์เซิร์ฟเวอร์ได้เลยครับ`
             );
@@ -198,9 +206,15 @@ client.on('messageCreate', async (message) => {
         } catch (err) {
 
             console.log(err.response?.data || err.message);
-            console.log(err);
 
-            message.reply('❌ ตรวจสอบไม่สำเร็จ');
+            message.reply(
+`\`\`\`yaml
+❌ VERIFY FAILED
+
+Status : Failed
+Reason : Unable to verify slip
+\`\`\``
+            );
         }
     }
 
