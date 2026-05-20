@@ -48,7 +48,7 @@ process.on('unhandledRejection', error => {
     console.error('Unhandled promise rejection:', error);
 });
 
-// heartbeat log ทุก 10 นาที
+// heartbeat ทุก 10 นาที
 setInterval(() => {
     console.log("Bot is alive:", new Date().toLocaleString());
 }, 600000);
@@ -60,131 +60,176 @@ client.on('messageCreate', async (message) => {
 
     if (message.author.bot) return;
 
-    console.log(`Message from ${message.author.tag}`);
+    // ทำงานเฉพาะ ticket
+    if (!message.channel.name.startsWith('ticket')) return;
 
-    // เช็คว่ามีรูปไหม
-    if (message.attachments.size > 0) {
+    // ใช้เฉพาะคำว่า verify
+    if (message.content.toLowerCase() !== 'verify') return;
 
-        const attachment = message.attachments.first();
+    try {
+
+        // ดึงข้อความล่าสุด 10 ข้อความ
+        const messages = await message.channel.messages.fetch({ limit: 10 });
+
+        let attachment = null;
+
+        // หา "รูปล่าสุด"
+        for (const msg of messages.values()) {
+
+            // ข้ามข้อความบอท
+            if (msg.author.bot) continue;
+
+            // ข้ามข้อความ verify
+            if (msg.content.toLowerCase() === 'checkS') continue;
+
+            // ถ้ามีรูป
+            if (msg.attachments.size > 0) {
+
+                attachment = msg.attachments.first();
+                break;
+            }
+        }
+
+        // ไม่เจอรูป
+        if (!attachment) {
+
+            return message.reply(
+`\`\`\`yaml
+❌ VERIFY FAILED
+
+Reason : No image found
+\`\`\``
+            );
+        }
+
+        // เช็คว่าเป็นรูปไหม
+        if (!attachment.contentType?.startsWith('image/')) {
+
+            return message.reply(
+`\`\`\`yaml
+❌ VERIFY FAILED
+
+Reason : File is not an image
+\`\`\``
+            );
+        }
 
         const imageUrl = attachment.url;
 
         await message.reply('🔍 กำลังตรวจสลิป...');
 
+        // โหลดรูป
+        const imageResponse = await axios.get(
+            imageUrl,
+            {
+                responseType: 'arraybuffer',
+                timeout: 15000
+            }
+        );
+
+        let response;
+        let slipType = 'ธนาคาร';
+
+        // ================= ตรวจธนาคาร =================
+
         try {
 
-            // โหลดรูป
-            const imageResponse = await axios.get(
-                imageUrl,
+            const form = new FormData();
+
+            form.append(
+                'file',
+                imageResponse.data,
+                'slip.jpg'
+            );
+
+            response = await axios.post(
+                'https://developer.easyslip.com/api/v1/verify',
+                form,
                 {
-                    responseType: 'arraybuffer',
-                    timeout: 15000
+                    timeout: 15000,
+                    headers: {
+                        ...form.getHeaders(),
+                        Authorization: `Bearer ${process.env.API_KEY}`
+                    }
                 }
             );
 
-            let response;
-            let slipType = 'ธนาคาร';
+            console.log('Bank Slip');
 
-            // ================= ตรวจธนาคาร =================
+        } catch {
 
-            try {
+            // ================= ตรวจ TrueMoney =================
 
-                const form = new FormData();
+            const form = new FormData();
 
-                form.append(
-                    'file',
-                    imageResponse.data,
-                    'slip.jpg'
-                );
+            form.append(
+                'file',
+                imageResponse.data,
+                'slip.jpg'
+            );
 
-                response = await axios.post(
-                    'https://developer.easyslip.com/api/v1/verify',
-                    form,
-                    {
-                        timeout: 15000,
-                        headers: {
-                            ...form.getHeaders(),
-                            Authorization: `Bearer ${process.env.API_KEY}`
-                        }
+            response = await axios.post(
+                'https://developer.easyslip.com/api/v1/verify/truewallet',
+                form,
+                {
+                    timeout: 15000,
+                    headers: {
+                        ...form.getHeaders(),
+                        Authorization: `Bearer ${process.env.API_KEY}`
                     }
-                );
+                }
+            );
 
-                console.log('Bank Slip');
+            slipType = 'TrueMoney Wallet';
 
-            } catch {
+            console.log('TrueMoney Slip');
+        }
 
-                // ================= ตรวจ TrueMoney =================
+        console.log(response.data);
 
-                const form = new FormData();
+        // ================= ดึงข้อมูล =================
 
-                form.append(
-                    'file',
-                    imageResponse.data,
-                    'slip.jpg'
-                );
+        const data = response.data.data;
 
-                response = await axios.post(
-                    'https://developer.easyslip.com/api/v1/verify/truewallet',
-                    form,
-                    {
-                        timeout: 15000,
-                        headers: {
-                            ...form.getHeaders(),
-                            Authorization: `Bearer ${process.env.API_KEY}`
-                        }
-                    }
-                );
+        const amount =
+            data.amount?.amount || data.amount || 'ไม่พบข้อมูล';
 
-                slipType = 'TrueMoney Wallet';
+        const time =
+            data.date || 'ไม่พบข้อมูล';
 
-                console.log('TrueMoney Slip');
-            }
+        const payload =
+            data.payload ||
+            data.transactionId ||
+            'unknown';
 
-            console.log(response.data);
+        // กันสลิปซ้ำ
+        if (global.usedSlips.includes(payload)) {
 
-            // ================= ดึงข้อมูล =================
-
-            const data = response.data.data;
-
-            const amount =
-                data.amount?.amount || data.amount || 'ไม่พบข้อมูล';
-
-            const time =
-                data.date || 'ไม่พบข้อมูล';
-
-            const payload =
-                data.payload ||
-                data.transactionId ||
-                'unknown';
-
-            // กันสลิปซ้ำ
-            if (global.usedSlips.includes(payload)) {
-
-                return message.reply(
+            return message.reply(
 `\`\`\`yaml
 ❌ SLIP DUPLICATE
 
 Status : Rejected
 Reason : This slip has already been used
 \`\`\``
-                );
-            }
+            );
+        }
 
-            global.usedSlips.push(payload);
+        global.usedSlips.push(payload);
 
-            // ข้อมูลผู้รับ
-            const receiverAccount =
-                data.receiver?.account?.value || '-';
+        // ข้อมูลผู้รับ
+        const receiverAccount =
+            data.receiver?.account?.value || '-';
 
-            const receiverName =
-                data.receiver?.name || '-';
+        const receiverName =
+            data.receiver?.name || '-';
 
-            const receiverPhone =
-                data.receiver?.phone || '-';
+        const receiverPhone =
+            data.receiver?.phone || '-';
 
-            // ================= ตอบกลับ =================
+        // ================= ตอบกลับ =================
 
-            message.reply(
+        message.reply(
 `\`\`\`yaml
 PAYMENT SUCCESS ✅
 
@@ -201,21 +246,20 @@ Duplicate   : No
 \`\`\`
 
 ส่ง @username หรือลิ้งค์เซิร์ฟเวอร์ได้เลยครับ`
-            );
+        );
 
-        } catch (err) {
+    } catch (err) {
 
-            console.log(err.response?.data || err.message);
+        console.log(err.response?.data || err.message);
 
-            message.reply(
+        message.reply(
 `\`\`\`yaml
 ❌ VERIFY FAILED
 
 Status : Failed
 Reason : Unable to verify slip
 \`\`\``
-            );
-        }
+        );
     }
 
 });
