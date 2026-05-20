@@ -64,6 +64,9 @@ client.on('messageCreate', async (message) => {
     // ใช้เฉพาะคำว่า checkS
     if (message.content.toLowerCase().trim() !== 'checks') return;
 
+    // ลบข้อความ command
+    await message.delete().catch(() => {});
+
     try {
 
         // ดึงข้อความล่าสุด 10 ข้อความ
@@ -91,7 +94,7 @@ client.on('messageCreate', async (message) => {
         // ไม่เจอรูป
         if (!attachment) {
 
-            return message.reply(
+            return message.channel.send(
 `\`\`\`yaml
 ❌ VERIFY FAILED
 
@@ -103,7 +106,7 @@ Reason : No image found
         // เช็คว่าเป็นรูปไหม
         if (!attachment.contentType?.startsWith('image/')) {
 
-            return message.reply(
+            return message.channel.send(
 `\`\`\`yaml
 ❌ VERIFY FAILED
 
@@ -114,7 +117,7 @@ Reason : File is not an image
 
         const imageUrl = attachment.url;
 
-        await message.reply('🔍 กำลังตรวจสลิป...');
+        await message.channel.send('🔍 กำลังตรวจสลิป...');
 
         // โหลดรูปจาก Discord
         const imageResponse = await axios.get(
@@ -207,7 +210,7 @@ Reason : File is not an image
 
         if (global.usedSlips.includes(payload)) {
 
-            return message.reply(
+            return message.channel.send(
 `\`\`\`yaml
 ❌ SLIP DUPLICATE
 
@@ -232,7 +235,7 @@ Reason : This slip has already been used
 
         // ================= ตอบกลับ =================
 
-        message.reply(
+        message.channel.send(
 `\`\`\`yaml
 PAYMENT SUCCESS ✅
 
@@ -256,7 +259,7 @@ Duplicate   : No
 
         console.log(err.response?.data || err.message);
 
-        message.reply(
+        message.channel.send(
 `\`\`\`yaml
 ❌ VERIFY FAILED
 
