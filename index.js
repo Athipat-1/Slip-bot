@@ -58,13 +58,14 @@ global.usedSlips = [];
 
 client.on('messageCreate', async (message) => {
 
+    // ข้ามข้อความบอท
     if (message.author.bot) return;
 
-    // ทำงานเฉพาะ ticket
+    // ทำงานเฉพาะห้อง ticket
     if (!message.channel.name.startsWith('ticket')) return;
 
-    // ใช้เฉพาะคำว่า verify
-    if (message.content.toLowerCase() !== 'verify') return;
+    // ใช้เฉพาะคำว่า checkS
+    if (message.content !== 'checkS') return;
 
     try {
 
@@ -79,8 +80,8 @@ client.on('messageCreate', async (message) => {
             // ข้ามข้อความบอท
             if (msg.author.bot) continue;
 
-            // ข้ามข้อความ verify
-            if (msg.content.toLowerCase() === 'checkS') continue;
+            // ข้ามข้อความ checkS
+            if (msg.content === 'checkS') continue;
 
             // ถ้ามีรูป
             if (msg.attachments.size > 0) {
@@ -118,7 +119,7 @@ Reason : File is not an image
 
         await message.reply('🔍 กำลังตรวจสลิป...');
 
-        // โหลดรูป
+        // โหลดรูปจาก Discord
         const imageResponse = await axios.get(
             imageUrl,
             {
@@ -128,9 +129,9 @@ Reason : File is not an image
         );
 
         let response;
-        let slipType = 'ธนาคาร';
+        let slipType = 'Bank Slip';
 
-        // ================= ตรวจธนาคาร =================
+        // ================= ตรวจสลิปธนาคาร =================
 
         try {
 
@@ -154,11 +155,11 @@ Reason : File is not an image
                 }
             );
 
-            console.log('Bank Slip');
+            console.log('Bank Slip Verified');
 
         } catch {
 
-            // ================= ตรวจ TrueMoney =================
+            // ================= ตรวจ TrueMoney Wallet =================
 
             const form = new FormData();
 
@@ -182,7 +183,7 @@ Reason : File is not an image
 
             slipType = 'TrueMoney Wallet';
 
-            console.log('TrueMoney Slip');
+            console.log('TrueMoney Slip Verified');
         }
 
         console.log(response.data);
@@ -192,17 +193,21 @@ Reason : File is not an image
         const data = response.data.data;
 
         const amount =
-            data.amount?.amount || data.amount || 'ไม่พบข้อมูล';
+            data.amount?.amount ||
+            data.amount ||
+            'Unknown';
 
         const time =
-            data.date || 'ไม่พบข้อมูล';
+            data.date ||
+            'Unknown';
 
         const payload =
             data.payload ||
             data.transactionId ||
             'unknown';
 
-        // กันสลิปซ้ำ
+        // ================= กันสลิปซ้ำ =================
+
         if (global.usedSlips.includes(payload)) {
 
             return message.reply(
@@ -217,7 +222,8 @@ Reason : This slip has already been used
 
         global.usedSlips.push(payload);
 
-        // ข้อมูลผู้รับ
+        // ================= ข้อมูลผู้รับ =================
+
         const receiverAccount =
             data.receiver?.account?.value || '-';
 
@@ -234,6 +240,7 @@ Reason : This slip has already been used
 PAYMENT SUCCESS ✅
 
 Type        : ${slipType}
+
 Receiver    : ${receiverName}
 Phone       : ${receiverPhone}
 Account     : ${receiverAccount}
