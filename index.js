@@ -61,11 +61,8 @@ client.on('messageCreate', async (message) => {
     // ข้ามข้อความบอท
     if (message.author.bot) return;
 
-    // ทำงานเฉพาะห้อง ticket
-    if (!message.channel.name.startsWith('ticket')) return;
-
     // ใช้เฉพาะคำว่า checkS
-    if (message.content !== 'checkS') return;
+    if (message.content.toLowerCase().trim() !== 'checks') return;
 
     try {
 
@@ -80,8 +77,8 @@ client.on('messageCreate', async (message) => {
             // ข้ามข้อความบอท
             if (msg.author.bot) continue;
 
-            // ข้ามข้อความ checkS
-            if (msg.content === 'checkS') continue;
+            // ข้ามข้อความ checks
+            if (msg.content.toLowerCase().trim() === 'checks') continue;
 
             // ถ้ามีรูป
             if (msg.attachments.size > 0) {
