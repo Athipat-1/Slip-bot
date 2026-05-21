@@ -61,8 +61,8 @@ client.on('messageCreate', async (message) => {
     // ข้ามข้อความบอท
     if (message.author.bot) return;
 
-    // ใช้เฉพาะคำว่า checkS
-    if (message.content.toLowerCase().trim() !== 'checks') return;
+    // ใช้เฉพาะคำสั่ง !c
+    if (message.content.toLowerCase().trim() !== '!c') return;
 
     // ลบข้อความ command
     await message.delete().catch(() => {});
@@ -80,7 +80,7 @@ client.on('messageCreate', async (message) => {
             // ข้ามข้อความบอท
             if (msg.author.bot) continue;
 
-            // ข้ามข้อความ checks
+            // ข้ามข้อความ !c
             if (msg.content.toLowerCase().trim() === '!c') continue;
 
             // ถ้ามีรูป
