@@ -81,7 +81,7 @@ client.on('messageCreate', async (message) => {
             if (msg.author.bot) continue;
 
             // ข้ามข้อความ checks
-            if (msg.content.toLowerCase().trim() === 'checks') continue;
+            if (msg.content.toLowerCase().trim() === '!c') continue;
 
             // ถ้ามีรูป
             if (msg.attachments.size > 0) {
