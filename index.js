@@ -257,18 +257,49 @@ Duplicate   : No
 
     } catch (err) {
 
-        console.log(err.response?.data || err.message);
+    console.log("===== VERIFY ERROR =====");
 
-        message.channel.send(
+    console.log(
+        JSON.stringify(
+            err.response?.data,
+            null,
+            2
+        )
+    );
+
+    const errorMessage =
+        err.response?.data?.message ||
+        err.response?.data?.error?.message ||
+        err.message;
+
+    // ดัก invalid_sender_name
+    if (errorMessage === 'invalid_sender_name') {
+
+        return message.channel.send(
 `\`\`\`yaml
-❌ VERIFY FAILED
+⚠️ VERIFY WARNING
 
-Status : Failed
-Reason : Unable to verify slip
+Status : Manual Review
+Reason : Sender name could not be verified
+
+The slip appears to be valid,
+but EasySlip could not verify
+the sender name.
+
+Please review manually.
 \`\`\``
         );
     }
 
+    message.channel.send(
+`\`\`\`yaml
+❌ VERIFY FAILED
+
+Status : Failed
+Reason : ${errorMessage}
+\`\`\``
+    );
+}
 });
 
 client.login(process.env.TOKEN);
